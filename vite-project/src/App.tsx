@@ -6,14 +6,13 @@ import axios from 'axios';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#ADD8E6', // Light blue
+      main: '#B3E0FF', 
     },
     secondary: {
-      main: '#FFB6C1', // Light pink
+      main: '#FFB6C1',
     },
   },
 });
-
 
 function App() {
 
@@ -32,20 +31,6 @@ function App() {
       console.log(error);
     }
   };
-
-  // works for GET requests
-  // const handleSubmit = async () => {
-
-  //   try {
-  //     console.log(`user message: ${message}`);
-  //     const response = await axios.get('http://localhost:3000/');
-  //     console.log(response.data.data.content);
-  //   } catch (error) {
-  //     console.log('failed to fetch AI');
-  //     console.log(error);
-  //   }
-  // };
-
 
   return (
     <ThemeProvider theme={theme}>
@@ -69,35 +54,38 @@ function App() {
           sx={{
             '& .MuiOutlinedInput-root': {
               '& fieldset': {
-                borderColor: 'purple', // Default border color
+                borderColor: theme.palette.primary.main,
               },
               '&:hover fieldset': {
-                borderColor: '#FFC0CB', // Pink border on hover
+                borderColor: theme.palette.secondary.main, 
               },
               '&.Mui-focused fieldset': {
-                borderColor: '#FFC0CB', // Pink border on focus
+                borderColor: theme.palette.secondary.main, 
+              },
+              '& input': {
+                color: '#FFB6C1', 
               },
             },
             '& .MuiInputLabel-root': {
-              color: 'purple', // Label default color
+              color: theme.palette.primary.main, 
             },
             '&:hover .MuiInputLabel-root': {
-              color: '#FFC0CB', // Label color on hover
+              color: theme.palette.secondary.main, 
             },
             '& .Mui-focused': {
-              color: '#FFC0CB', // Label color on focus
+              color: theme.palette.secondary.main,
             },
           }}
         />
         <Button
           variant="outlined"
           sx={{
-            borderColor: 'purple',
-            color: 'purple',
+            borderColor: theme.palette.primary.main,
+            color: theme.palette.primary.main, 
             '&:hover': {
-              borderColor: '#FFC0CB',
-              backgroundColor: '#FFC0CB',
-              color: '#fff',
+              borderColor: theme.palette.secondary.main, 
+              backgroundColor: theme.palette.secondary.main, 
+              color: '#fff', 
             },
           }}
           onClick={() => handleSubmit()}
