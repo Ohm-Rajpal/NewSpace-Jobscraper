@@ -1,7 +1,7 @@
 import express from "express";
-import bodyParser from "body-parser";
 import OpenAI from "openai";
 import cors from 'cors';
+import playwright from 'playwright';
 
 const openai = new OpenAI();
 const app = express();
@@ -11,12 +11,33 @@ const PORT = 3000;
 app.use(cors()); // communication with frontend  
 app.use(express.json()); // parse JSON
 
-// make request
+// test out playwright's scraping functionality
+app.get('/scrape_test', async(req, res) => {
+    console.log('Starting scraping');
+    try {
+        for (const browserType of ['chromium', 'firefox', 'webkit']) {  
+            const browser = await playwright[browserType].launch();
+            const context = await browser.newContext();
+            const page = await context.newPage();
+            await page.goto("https://www.indeed.com/jobs?q=aerospace+engineering+intern");
+            await page.screenshot({path: `nodejs_${browserType}.png`, fullPage: true});
+            await page.waitForTimeout(1000);
+            await browser.close();
+            console.log(`API called successfully for browser ${browserType}`);
+        }
+    } catch (e) {
+        console.log("FAILED TO SCRAPE within backend");
+        console.log(`ERROR IS ${e}`);
+    }
+
+    console.log('Finished scraping');
+})
+
+
+// this will parse the web scraped input eventually
 app.post('/ai_response', async (req, res) => {
     try {
         const userInput = req.body.message;
-        
-
         const systemPrompt = `You are an intelligent job parser designed to extract relevant details from job postings. Your task is to identify and return key information about the job listing. For each job description provided, please extract the following details in the format specified below:
 
         1. **Job Title**: The title of the job position.

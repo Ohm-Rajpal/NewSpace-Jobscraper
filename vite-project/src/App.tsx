@@ -32,6 +32,18 @@ function App() {
     }
   };
 
+  // testing if playwright get request works
+  const testPlaywright = async () => {
+    try {
+      console.log('about to test playwright');
+      const scrapedResponse = axios.get('http://localhost:3000/scrape_test');
+      console.log(`Backend response ${scrapedResponse}`);
+    } catch (e) {
+      console.log('Failed to make get request');
+      console.log(`error was ${e}`);
+    }
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <div
@@ -92,6 +104,24 @@ function App() {
         >
           Submit
         </Button>
+
+        {/* temporary button to test playwright */}
+        <Button
+          variant="outlined"
+          sx={{
+            borderColor: theme.palette.primary.main,
+            color: theme.palette.primary.main, 
+            '&:hover': {
+              borderColor: theme.palette.secondary.main, 
+              backgroundColor: theme.palette.secondary.main, 
+              color: '#fff', 
+            },
+          }}
+          onClick={() => testPlaywright()}
+        >
+          Test Playwright
+        </Button>
+
       </div>
     </ThemeProvider>
   );

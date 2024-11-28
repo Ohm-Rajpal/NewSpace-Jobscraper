@@ -17,6 +17,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "openai": "^4.72.0",
+    "playwright": "^1.49.0",
     "scrapingbee": "^1.7.5"
   }
 }
