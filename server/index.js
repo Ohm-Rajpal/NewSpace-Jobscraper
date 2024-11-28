@@ -11,6 +11,14 @@ const PORT = 3000;
 app.use(cors()); // communication with frontend  
 app.use(express.json()); // parse JSON
 
+// next step is to click through every job posting that is an aerospace internship
+// extract the string data in that job posting
+// feed the data to the LLM and get a clean response back
+// iterate this process for all the jobs in the first page
+// later steps include creating a nicer frontend that cleanly displays all of the scraped jobs
+// last steps would involve choosing a job updating frequency, and figuring out how/where to host this website
+
+
 // test out playwright's scraping functionality
 app.get('/scrape_test', async(req, res) => {
     console.log('Starting scraping');
