@@ -42,23 +42,41 @@ app.get('/scrape_test', async(req, res) => {
 })
 
 
+
+// next step would be to extract data from pages
+// oh les go they give you the option to extract all the links in the page
+// next step would be to individually traverse each job posting link and run the llm on the text gathered from each page using an additional call to webscraper api 
+// extraction is a JSON  
+
 // test out scraping bee
 async function get(url) {
     var client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
     return await client.get({
       url: url,
       params: {
-        'render_js': 'True',
-        // 'stealth_mode': 'True',
+        'extract_rules': {"all_links" : {
+            "selector": "a",
+            "type": "list",
+            "output": {
+                "anchor": "a",
+                "href": {
+                    "selector": "a",
+                    "output": "@href"
+                }
+            }
+        }},
+        // 'render_js': 'True',
         'country_code': 'us',
         'block_resources': 'False',
-        'stealth_proxy': 'True'
+        'stealth_proxy': 'True' 
       },
     })
   }
 
 app.get('/scrape_test_two', async(req, res) => {
     const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
+    // const url = "https://www.amazon.com/s?k=computer&crid=18YBFCB2WXF5C&sprefix=comput%2Caps%2C168&ref=nb_sb_noss_2";
+    // const url = "https://www.indeed.com/jobs/q-aerospace%20engineering%20intern?vjk=b498d310e453438b";
     const my_request = get(url);
     my_request.then(function (response) {
         console.log("Status Code:", response.status) // Print request status code
