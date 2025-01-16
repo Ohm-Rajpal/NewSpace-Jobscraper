@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 
 
 const openai = new OpenAI();
+const client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
 const app = express();
 const PORT = 3000;
 
@@ -70,7 +71,6 @@ app.get('/scrape_test', async(req, res) => {
 
 // access every url in main page
 async function get_urls(url) {
-    var client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
     return await client.get({
       url: url,
       params: {
@@ -91,7 +91,42 @@ async function get_urls(url) {
         'stealth_proxy': 'True' 
       },
     })
-  }
+}
+
+// takes array with all the links, will scrape entire page for each link. For now will only test on one link
+async function get_pages(arr, count) {   
+    const numbers = new Set(); // set prevents repeating num
+
+    while (numbers.size < count) {
+        numbers.add(Math.floor(Math.random() * arr.length));
+    }
+    
+    const indicies = Array.from(numbers);
+
+    console.log(`random link is ${arr[indicies[0]]}`);
+    console.log(`random index is ${indicies[0]}`);
+
+    const testPage = await client.get({
+        url: arr[indicies[0]],
+        params: {
+          'render_js': 'True',
+          'json_respons': 'True',
+          'country_code': 'us',
+          'block_resources': 'False',
+          'stealth_proxy': 'True' 
+        },
+    })
+
+    testPage.then(function (response) {
+        console.log("Status Code:", response.status) 
+        var decoder = new TextDecoder();
+        var text = decoder.decode(response.data); 
+        console.log("Response content:", text);
+        res.send(text);
+        console.log("FINISHED SUCCESSFULLY!!");
+    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+}
+
 
 // modify this code to save the data in a database tool
 // for now i have copied and pasted the data in a json
@@ -135,6 +170,8 @@ app.get('/scrape_test_two', async(req, res) => {
 
     // debugging
     console.log(`all internship urls ${valid_urls}`);
+
+    await get_pages(valid_urls, 4);
 })
 
 // this will parse the web scraped input eventually
