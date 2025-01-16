@@ -36,11 +36,21 @@ function App() {
   const testPlaywright = async () => {
     try {
       console.log('about to test playwright');
-      const scrapedResponse = axios.get('http://localhost:3000/scrape_test');
+      const scrapedResponse = await axios.get('http://localhost:3000/scrape_test');
       console.log(`Backend response ${scrapedResponse}`);
     } catch (e) {
       console.log('Failed to make get request');
       console.log(`error was ${e}`);
+    }
+  }
+
+  const testScrapingBee = async () => {
+    try {
+      console.log('testing scraping bee bc playwright is hard');
+      const exampleCall = await axios.get('http://localhost:3000/scrape_test_two');
+      console.log(`Backend response ${exampleCall}`);
+    } catch (e) {
+      console.log('failed to make get request');
     }
   }
 
@@ -117,7 +127,8 @@ function App() {
               color: '#fff', 
             },
           }}
-          onClick={() => testPlaywright()}
+          // onClick={() => testPlaywright()}
+          onClick={() => testScrapingBee()}
         >
           Test Playwright
         </Button>

@@ -2,6 +2,8 @@ import express from "express";
 import OpenAI from "openai";
 import cors from 'cors';
 import playwright from 'playwright';
+import scrapingbee from "scrapingbee";
+import 'dotenv/config';
 
 const openai = new OpenAI();
 const app = express();
@@ -17,7 +19,6 @@ app.use(express.json()); // parse JSON
 // iterate this process for all the jobs in the first page
 // later steps include creating a nicer frontend that cleanly displays all of the scraped jobs
 // last steps would involve choosing a job updating frequency, and figuring out how/where to host this website
-
 
 // test out playwright's scraping functionality
 app.get('/scrape_test', async(req, res) => {
@@ -37,10 +38,37 @@ app.get('/scrape_test', async(req, res) => {
         console.log("FAILED TO SCRAPE within backend");
         console.log(`ERROR IS ${e}`);
     }
-
     console.log('Finished scraping');
 })
 
+
+// test out scraping bee
+async function get(url) {
+    var client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
+    return await client.get({
+      url: url,
+      params: {
+        'render_js': 'True',
+        // 'stealth_mode': 'True',
+        'country_code': 'us',
+        'block_resources': 'False',
+        'stealth_proxy': 'True'
+      },
+    })
+  }
+
+app.get('/scrape_test_two', async(req, res) => {
+    const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
+    const my_request = get(url);
+    my_request.then(function (response) {
+        console.log("Status Code:", response.status) // Print request status code
+        var decoder = new TextDecoder();
+        var text = decoder.decode(response.data); // Decode request content
+        console.log("Response content:", text); // Print the content
+        res.send(text);
+        console.log("FINISHED SUCCESSFULLY!!");
+    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+})
 
 // this will parse the web scraped input eventually
 app.post('/ai_response', async (req, res) => {
@@ -104,4 +132,4 @@ app.post('/ai_response', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
-})
+}) 
