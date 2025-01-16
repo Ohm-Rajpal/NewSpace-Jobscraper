@@ -4,10 +4,37 @@ import cors from 'cors';
 import playwright from 'playwright';
 import scrapingbee from "scrapingbee";
 import 'dotenv/config';
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from 'url';
+
 
 const openai = new OpenAI();
 const app = express();
 const PORT = 3000;
+
+// temporary data from JSON delete later
+const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+const __dirname = path.dirname(__filename); // get the name of the directory
+const jsonPath = path.join(__dirname, 'data.json');
+let jsonData = null;
+
+fs.readFile(jsonPath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading JSON file:', err);
+      return;
+    }
+  
+    // Parse the JSON data
+    try {
+      jsonData = JSON.parse(data);
+  
+      // Now you have the JSON data in memory
+    //   console.log('JSON Data:', jsonData);
+    } catch (parseError) {
+      console.error('Error parsing JSON:', parseError);
+    }
+  });
 
 // middleware
 app.use(cors()); // communication with frontend  
@@ -41,15 +68,8 @@ app.get('/scrape_test', async(req, res) => {
     console.log('Finished scraping');
 })
 
-
-
-// next step would be to extract data from pages
-// oh les go they give you the option to extract all the links in the page
-// next step would be to individually traverse each job posting link and run the llm on the text gathered from each page using an additional call to webscraper api 
-// extraction is a JSON  
-
-// test out scraping bee
-async function get(url) {
+// access every url in main page
+async function get_urls(url) {
     var client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
     return await client.get({
       url: url,
@@ -73,19 +93,48 @@ async function get(url) {
     })
   }
 
+// modify this code to save the data in a database tool
+// for now i have copied and pasted the data in a json
+// iterate over the json and extract the links
+// call a different scraper get request to get the information on the page
+// afterwards call an LLM to analyze the results and format it in a nice way
+
+// go over every anchor link that has the word "intern" in it
+// create an array that holds the link to every one of the
+// https://www.indeed.com/
+const valid_urls = [];
+
 app.get('/scrape_test_two', async(req, res) => {
     const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
+    const indeed = "https://www.indeed.com";
     // const url = "https://www.amazon.com/s?k=computer&crid=18YBFCB2WXF5C&sprefix=comput%2Caps%2C168&ref=nb_sb_noss_2";
     // const url = "https://www.indeed.com/jobs/q-aerospace%20engineering%20intern?vjk=b498d310e453438b";
-    const my_request = get(url);
-    my_request.then(function (response) {
-        console.log("Status Code:", response.status) // Print request status code
-        var decoder = new TextDecoder();
-        var text = decoder.decode(response.data); // Decode request content
-        console.log("Response content:", text); // Print the content
-        res.send(text);
-        console.log("FINISHED SUCCESSFULLY!!");
-    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    
+
+    // uncomment when ready -> for now just use the json data in data.json
+    // const json_urls = await get_urls(url);
+    
+    // json_urls.then(function (response) {
+    //     console.log("Status Code:", response.status) 
+    //     var decoder = new TextDecoder();
+    //     var text = decoder.decode(response.data); 
+    //     console.log("Response content:", text);
+    //     res.send(text);
+    //     console.log("FINISHED SUCCESSFULLY!!");
+    // }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+
+    // iterate over the json urls
+    jsonData.all_links.forEach(link => {
+        const anchor = link.anchor;
+        const href = link.href;
+
+        if (anchor.includes("Intern")) {
+            valid_urls.push(indeed + href);
+        }
+    });
+
+    // debugging
+    console.log(`all internship urls ${valid_urls}`);
 })
 
 // this will parse the web scraped input eventually
