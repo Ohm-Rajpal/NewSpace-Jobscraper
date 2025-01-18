@@ -110,12 +110,12 @@ async function get_pages(arr, count) {
         url: arr[indicies[0]],
         params: {
           'render_js': 'True',
-          'json_respons': 'True',
+          'json_response': 'True',
           'country_code': 'us',
           'block_resources': 'False',
           'stealth_proxy': 'True' 
         },
-    })
+    });
 
     testPage.then(function (response) {
         console.log("Status Code:", response.status) 
@@ -125,6 +125,30 @@ async function get_pages(arr, count) {
         res.send(text);
         console.log("FINISHED SUCCESSFULLY!!");
     }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+}
+
+async function scrape_link(target_url) {
+    const scrapePage = await client.get({
+        url: target_url,
+        params: {
+          'render_js': 'True',
+          'json_response': 'True',
+          'country_code': 'us',
+          'block_resources': 'False',
+          'stealth_proxy': 'True',
+        },
+    });
+
+    scrapePage.then(function (response) {
+        console.log("Status Code:", response.status) 
+        var decoder = new TextDecoder();
+        var text = decoder.decode(response.data); 
+        console.log("Response content:", text);
+        res.send(text);
+        console.log("SCRAPED URL SUCCESSFULLY!!");
+    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    
+    return scrapePage;
 }
 
 
@@ -138,6 +162,7 @@ async function get_pages(arr, count) {
 // create an array that holds the link to every one of the
 // https://www.indeed.com/
 const valid_urls = [];
+const scrapedDataArr = [];
 
 app.get('/scrape_test_two', async(req, res) => {
     const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
@@ -157,7 +182,6 @@ app.get('/scrape_test_two', async(req, res) => {
     //     res.send(text);
     //     console.log("FINISHED SUCCESSFULLY!!");
     // }).catch((e) => console.log('A problem occurs : ' + e.response.data));
-
     // iterate over the json urls
     jsonData.all_links.forEach(link => {
         const anchor = link.anchor;
@@ -172,9 +196,18 @@ app.get('/scrape_test_two', async(req, res) => {
     console.log(`all internship urls ${valid_urls}`);
 
     await get_pages(valid_urls, 4);
+
+    valid_urls.forEach(async url => {
+        // call scrape link function
+        // store all the results in a database later 
+        // use openai api to parse these inputs and give a result as a json
+        const scrapedLinkData = await scrape_link(url);  
+        scrapedDataArr.push(scrapedLinkData);
+    })
 })
 
 // this will parse the web scraped input eventually
+// modify this function so that it reads the information sent from a database of my choice and then calls the ai on each one
 app.post('/ai_response', async (req, res) => {
     try {
         const userInput = req.body.message;
