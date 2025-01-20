@@ -93,64 +93,47 @@ async function get_urls(url) {
     })
 }
 
-// takes array with all the links, will scrape entire page for each link. For now will only test on one link
-async function get_pages(arr, count) {   
-    const numbers = new Set(); // set prevents repeating num
+// randomly select count numbers and store into array
+function getRandomIndicies(arr, count) {
+    const indicies = new Set();
 
-    while (numbers.size < count) {
-        numbers.add(Math.floor(Math.random() * arr.length));
+    while (indicies.size < count) {
+        indicies.add(Math.floor(Math.random() * arr.length));
     }
-    
-    const indicies = Array.from(numbers);
 
-    console.log(`random link is ${arr[indicies[0]]}`);
-    console.log(`random index is ${indicies[0]}`);
-
-    const testPage = await client.get({
-        url: arr[indicies[0]],
-        params: {
-          'render_js': 'True',
-          'json_response': 'True',
-          'country_code': 'us',
-          'block_resources': 'False',
-          'stealth_proxy': 'True' 
-        },
-    });
-
-    testPage.then(function (response) {
-        console.log("Status Code:", response.status) 
-        var decoder = new TextDecoder();
-        var text = decoder.decode(response.data); 
-        console.log("Response content:", text);
-        res.send(text);
-        console.log("FINISHED SUCCESSFULLY!!");
-    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    return Array.from(indicies);
 }
 
 async function scrape_link(target_url) {
-    const scrapePage = await client.get({
-        url: target_url,
-        params: {
-          'render_js': 'True',
-          'json_response': 'True',
-          'country_code': 'us',
-          'block_resources': 'False',
-          'stealth_proxy': 'True',
-        },
-    });
 
-    scrapePage.then(function (response) {
-        console.log("Status Code:", response.status) 
-        var decoder = new TextDecoder();
-        var text = decoder.decode(response.data); 
-        console.log("Response content:", text);
-        res.send(text);
-        console.log("SCRAPED URL SUCCESSFULLY!!");
-    }).catch((e) => console.log('A problem occurs : ' + e.response.data));
-    
+    // uncomment when you need to test individual link scraping functionality:
+    // const scrapePage = await client.get({
+    //     url: target_url,
+    //     params: {
+    //       'render_js': 'True',
+    //       'json_response': 'True',
+    //       'country_code': 'us',
+    //       'block_resources': 'False',
+    //       'stealth_proxy': 'True',
+    //     },
+    // });
+
+    // scrapePage.then(function (response) {
+    //     console.log("Status Code:", response.status) 
+    //     var decoder = new TextDecoder();
+    //     var text = decoder.decode(response.data); 
+    //     console.log("Response content:", text);
+    //     res.send(text);
+    //     console.log("SCRAPED URL SUCCESSFULLY!!");
+    // }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    const scrapePage = 'scraping function call (expensive)';
     return scrapePage;
 }
 
+async function analyze_page(pageData) {
+    // call openai api to analyze the page
+    // we will save this result too    
+}
 
 // modify this code to save the data in a database tool
 // for now i have copied and pasted the data in a json
@@ -161,7 +144,8 @@ async function scrape_link(target_url) {
 // go over every anchor link that has the word "intern" in it
 // create an array that holds the link to every one of the
 // https://www.indeed.com/
-const valid_urls = [];
+const validUrls = [];
+let randomIndicies = [];
 const scrapedDataArr = [];
 
 app.get('/scrape_test_two', async(req, res) => {
@@ -169,7 +153,6 @@ app.get('/scrape_test_two', async(req, res) => {
     const indeed = "https://www.indeed.com";
     // const url = "https://www.amazon.com/s?k=computer&crid=18YBFCB2WXF5C&sprefix=comput%2Caps%2C168&ref=nb_sb_noss_2";
     // const url = "https://www.indeed.com/jobs/q-aerospace%20engineering%20intern?vjk=b498d310e453438b";
-    
 
     // uncomment when ready -> for now just use the json data in data.json
     // const json_urls = await get_urls(url);
@@ -182,28 +165,35 @@ app.get('/scrape_test_two', async(req, res) => {
     //     res.send(text);
     //     console.log("FINISHED SUCCESSFULLY!!");
     // }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    
     // iterate over the json urls
     jsonData.all_links.forEach(link => {
         const anchor = link.anchor;
         const href = link.href;
 
         if (anchor.includes("Intern")) {
-            valid_urls.push(indeed + href);
+            validUrls.push(indeed + href);
         }
     });
 
+    randomIndicies = await getRandomIndicies(validUrls, 4); // for now we are only scraping 4 random indicies
     // debugging
-    console.log(`all internship urls ${valid_urls}`);
-
-    await get_pages(valid_urls, 4);
-
-    valid_urls.forEach(async url => {
-        // call scrape link function
-        // store all the results in a database later 
-        // use openai api to parse these inputs and give a result as a json
-        const scrapedLinkData = await scrape_link(url);  
-        scrapedDataArr.push(scrapedLinkData);
+    randomIndicies.forEach(index => {
+        console.log(`random index ${index}`);
     })
+    
+    // console.log(`all internship urls ${validUrls}`);
+
+    // now iterate over every link
+
+    // iterate over the array of indicies
+    randomIndicies.forEach(async index => {
+        const scrapedLinkData = await scrape_link(validUrls[index]);
+        console.log(`random scraped link: ${scrapedLinkData}`);
+        scrapedDataArr.push(scrapedLinkData);
+        console.log('Successfully scraped data!');
+    })
+    console.log(`scraped data array appears as following: ${scrapedDataArr.length}`);
 })
 
 // this will parse the web scraped input eventually
