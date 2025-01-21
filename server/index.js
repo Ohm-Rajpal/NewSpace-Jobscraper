@@ -12,7 +12,7 @@ const openai = new OpenAI();
 const client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
 const app = express();
 const uri = `mongodb+srv://ohmrajpal:${process.env.DB_PASSWORD}@cluster0.5pxx9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`; 
-const DB = new MongoClient(uri, { serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true, }});
+const mongoClient = new MongoClient(uri, { serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true, }});
 const PORT = 3000;
 
 // temporary data from JSON delete later
@@ -47,13 +47,28 @@ app.use(express.json()); // parse JSON
 async function runDatabase() {
     try {
       // Connect the client to the server	(optional starting in v4.7)
-      await DB.connect();
-      // Send a ping to confirm a successful connection
-      await DB.db("admin").command({ ping: 1 });
-      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+        const database = mongoClient.db("newspaceDB");
+        const summarizedData = database.collection("summarizedData");
+        // test writing to the DB
+        // const doc = {
+        //     title: "NewSpace Test",
+        //     creator: "Ohm Rajpal"
+        // }
+
+        // const result = await summarizedData.insertOne(doc);
+        // console.log(`A document was inserted with the _id: ${result.insertedId}`);
+        
+        // test reading from the db
+        // const query = { title: "NewSpace Test" };
+        // const retVal = await summarizedData.findOne(query);
+        // console.log(`creator found at ${retVal.creator}`);
+        
+        // List all databases
+        // const databases = await mongoClient.db().admin().listDatabases();
+        // console.log("Databases:", databases.databases);
     } finally {
       // Ensures that the client will close when you finish/error
-      await DB.close();
+      await mongoClient.close();
     }
 }
 
