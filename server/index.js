@@ -8,7 +8,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from 'url';
 
-
 const openai = new OpenAI();
 const client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
 const app = express();
@@ -104,30 +103,44 @@ function getRandomIndicies(arr, count) {
     return Array.from(indicies);
 }
 
-async function scrape_link(target_url) {
+async function scrapeLink(target_url) {
 
     // uncomment when you need to test individual link scraping functionality:
     try {
         const scrapePage = await client.get({
             url: target_url,
             params: {
-              'render_js': 'True',
-              'json_response': 'False',
               'country_code': 'us',
               'block_resources': 'False',
               'stealth_proxy': 'True',
+              'wait': '10000',
+              'wait_browser': 'load',
             },
         });
-        console.log("Status Code:", response.status) 
+        console.log("Status Code:", scrapePage.status) 
         var decoder = new TextDecoder();
-        var text = decoder.decode(response.data); 
+        var text = decoder.decode(scrapePage.data); 
         console.log("Response content:", text);
         return text;
     } catch (e) {
         console.log('A problem occurs in scraping the link!');
+        
+        if (e.response) {
+            console.error('Error Status:', e.response.status);
+            console.error('Error Response Data:', e.response.data);
+        } else {
+            // For other errors like network issues
+            console.error('Error Message:', e.message);
+        }
     }
     // const scrapePage = 'scraping function call (expensive)';
 }
+
+// app.get('/test_test', async (req, res) => {
+//     console.log('begin scraping whole page test');
+//     const data = await scrapeLink("https://www.indeed.com/viewjob?jk=425bf3c5e49ca25d");
+//     console.log(`data is ${data}`);
+// })
 
 async function analyze_page(pageData) {
     // call openai api to analyze the page
@@ -174,9 +187,8 @@ async function analyze_page(pageData) {
                 { role: "user", content: userInput },
             ],
         });
-        
-        console.log('succesful completion!');
-        return completion.choices[0].message;
+        console.log('AI analysis succesfully complete!');
+        return completion.choices[0].message.content;
     } catch (error) {
         const errorMessage = "analysis did not work correctly";
         console.error('Failed to call OpenAI API:', error);
@@ -198,7 +210,7 @@ let randomIndicies = [];
 const scrapedDataArr = [];
 const analyzedDataArr = [];
 
-app.get('/scrape_test_two', async(req, res) => {
+app.get('/webscrape_jobs', async(req, res) => {
     const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
     const indeed = "https://www.indeed.com";
     // const url = "https://www.amazon.com/s?k=computer&crid=18YBFCB2WXF5C&sprefix=comput%2Caps%2C168&ref=nb_sb_noss_2";
@@ -227,23 +239,51 @@ app.get('/scrape_test_two', async(req, res) => {
         }
     });
 
-    
     // change of plans select random top 10
     randomIndicies = await getRandomIndicies(validUrls, 1); // for now we are only scraping 4 random indicies
     // debugging
     randomIndicies.forEach(async index => {
         console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
-        // const scrapedLinkData = await scrape_link(validUrls[index]);
-        const scrapedLinkData = await scrape_link("https://www.amazon.com/Cracking-Coding-Interview-Programming-Questions/dp/0984782850/ref=pd_rhf_gw_s_pd_sbs_rvi_d_sccl_1_8/132-6134933-5498823?pd_rd_w=j5LYZ&content-id=amzn1.sym.46e2be74-be72-4d3f-86e1-1de279690c4e&pf_rd_p=46e2be74-be72-4d3f-86e1-1de279690c4e&pf_rd_r=RH7N1YT3XQBDFFD8DEG5&pd_rd_wg=dOzSk&pd_rd_r=fd870684-895b-4604-bbca-fbf2e20fb293&pd_rd_i=0984782850&psc=1");
-        const analyzedData = await analyze_page(scrapedLinkData);
+        const scrapedLinkData = await scrapeLink(validUrls[index]);
+        // const scrapedLinkData = `
+        // <div class="scaffold-layout__row scaffold-layout__content scaffold-layout__content--list-detail">
+        //   <div id="ember822" class="artdeco-entity-lockup__subtitle ember-view t-16">
+        //     188,238 followers
+        //   </div>
+        //   <button class="follow artdeco-button artdeco-button--secondary ml5" aria-label="Follow" type="button">
+        //     <svg role="none" aria-hidden="true" class="artdeco-button__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+        //       <use href="#add-small" width="16" height="16"></use>
+        //     </svg>
+        //     <span aria-hidden="true">Follow</span>
+        //   </button>
+        //   <div class="t-14 mt5">
+        //     Automotive
+        //     <span class="jobs-company__inline-information">1,001-5,000 employees</span>
+        //     <span class="jobs-company__inline-information">3,624 on LinkedIn</span>
+        //   </div>
+        //   <p class="jobs-company__company-description text-body-small-open">
+        //     <div class="YdPtnwmzOdftNXhdCxQDyenbgpZTnuEajNVEjFI inline-show-more-text--is-collapsed inline-show-more-text--is-collapsed-with-line-clamp" style="-webkit-line-clamp:3;" dir="ltr" tabindex="-1">
+        //       Zoox is transforming mobility-as-a-service by developing a fully autonomous, purpose-built fleet designed for AI to drive and humans to enjoy.
+        //       <span class="inline-show-more-text__link-container-collapsed">
+        //         <span>…</span>
+        //         <button class="inline-show-more-text__button inline-show-more-text__button--light link" aria-expanded="false" role="button" type="button">
+        //           show more
+        //         </button>
+        //       </span>
+        //     </div>
+        //   </p>
+        // </div>
+        // `;
+        
+        const analyzedData = await analyze_page(encodeURIComponent(scrapedLinkData));
 
         // want to store these results in a db
         scrapedDataArr.push(scrapedLinkData);
         analyzedDataArr.push(analyzedData);
-        console.log(`random scraped link: ${scrapedLinkData}`);
+        console.log(`random scraped link data: ${scrapedLinkData}`);
         console.log(`analyzed output is: ${analyzedData}`);
         console.log('Successfully scraped data!');
-    })
+    });
     
     // console.log(`all internship urls ${validUrls}`);
 
