@@ -1,8 +1,8 @@
 import express from "express";
 import OpenAI from "openai";
 import cors from 'cors';
-import playwright from 'playwright';
 import scrapingbee from "scrapingbee";
+import { MongoClient, ServerApiVersion } from 'mongodb'; 
 import 'dotenv/config';
 import fs from "fs";
 import path from "path";
@@ -11,6 +11,8 @@ import { fileURLToPath } from 'url';
 const openai = new OpenAI();
 const client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
 const app = express();
+const uri = `mongodb+srv://ohmrajpal:${process.env.DB_PASSWORD}@cluster0.5pxx9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`; 
+const DB = new MongoClient(uri, { serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true, }});
 const PORT = 3000;
 
 // temporary data from JSON delete later
@@ -41,6 +43,21 @@ fs.readFile(jsonPath, 'utf8', (err, data) => {
 app.use(cors()); // communication with frontend  
 app.use(express.json()); // parse JSON
 
+// setup the database
+async function runDatabase() {
+    try {
+      // Connect the client to the server	(optional starting in v4.7)
+      await DB.connect();
+      // Send a ping to confirm a successful connection
+      await DB.db("admin").command({ ping: 1 });
+      console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } finally {
+      // Ensures that the client will close when you finish/error
+      await DB.close();
+    }
+}
+
+runDatabase().catch(console.dir);
 
 // randomly select count numbers and store into array
 function getRandomIndicies(arr, count) {
@@ -55,26 +72,41 @@ function getRandomIndicies(arr, count) {
 
 // access every url in main page
 async function get_urls(url) {
-    return await client.get({
-      url: url,
-      params: {
-        'extract_rules': {"all_links" : {
-            "selector": "a",
-            "type": "list",
-            "output": {
-                "anchor": "a",
-                "href": {
-                    "selector": "a",
-                    "output": "@href"
-                }
-            }
-        }},
-        // 'render_js': 'True',
-        'country_code': 'us',
-        'block_resources': 'False',
-        'stealth_proxy': 'True' 
-      },
-    })
+    try {
+        const urlData = await client.get({
+            url: url,
+            params: {
+              'extract_rules': {"all_links" : {
+                  "selector": "a",
+                  "type": "list",
+                  "output": {
+                      "anchor": "a",
+                      "href": {
+                          "selector": "a",
+                          "output": "@href"
+                      }
+                  }
+              }},
+              'country_code': 'us',
+              'block_resources': 'False',
+              'stealth_proxy': 'True' 
+            },
+        })
+        console.log("Status Code:", urlData.status) 
+        var decoder = new TextDecoder();
+        var text = decoder.decode(urlData.data); 
+        console.log("Response content:", text);
+        return text;        
+    } catch (e) {
+        console.log('A problem occurs in scraping the website!');
+        if (e.response) {
+            console.error('Error Status:', e.response.status);
+            console.error('Error Response Data:', e.response.data);
+        } else {
+            // For other errors like network issues
+            console.error('Error Message:', e.message);
+        }
+    }
 }
 
 async function scrapeLink(target_url) {
@@ -99,7 +131,6 @@ async function scrapeLink(target_url) {
         return text;
     } catch (e) {
         console.log('A problem occurs in scraping the link!');
-        
         if (e.response) {
             console.error('Error Status:', e.response.status);
             console.error('Error Response Data:', e.response.data);
@@ -109,13 +140,6 @@ async function scrapeLink(target_url) {
         }
     }
 }
-
-// debugging get requests by scraper
-// app.get('/test_test', async (req, res) => {
-//     console.log('begin scraping whole page test');
-//     const data = await scrapeLink("https://www.indeed.com/viewjob?jk=425bf3c5e49ca25d");
-//     console.log(`data is ${data}`);
-// })
 
 // function to analyze scraped data
 async function analyze_page(pageData) {
@@ -172,6 +196,13 @@ async function analyze_page(pageData) {
     }
 }
 
+// debugging get requests by scraper
+// app.get('/test_test', async (req, res) => {
+//     console.log('begin scraping whole page test');
+//     const data = await scrapeLink("https://www.indeed.com/viewjob?jk=425bf3c5e49ca25d");
+//     console.log(`data is ${data}`);
+// })
+
 // modify this code to save the data in a database tool
 // for now i have copied and pasted the data in a json
 // iterate over the json and extract the links
@@ -185,35 +216,23 @@ const validUrls = [];
 let randomIndicies = [];
 const scrapedDataArr = [];
 const analyzedDataArr = [];
+const jobUrl = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
+const indeed = "https://www.indeed.com";
 
 app.get('/webscrape_jobs', async(req, res) => {
-    const url = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
-    const indeed = "https://www.indeed.com";
-    // const url = "https://www.amazon.com/s?k=computer&crid=18YBFCB2WXF5C&sprefix=comput%2Caps%2C168&ref=nb_sb_noss_2";
-    // const url = "https://www.indeed.com/jobs/q-aerospace%20engineering%20intern?vjk=b498d310e453438b";
-
-    // uncomment when ready -> for now just use the json data in data.json
-    // const json_urls = await get_urls(url);
-    
-    // json_urls.then(function (response) {
-    //     console.log("Status Code:", response.status) 
-    //     var decoder = new TextDecoder();
-    //     var text = decoder.decode(response.data); 
-    //     console.log("Response content:", text);
-    //     res.send(text);
-    //     console.log("FINISHED SUCCESSFULLY!!");
-    // }).catch((e) => console.log('A problem occurs : ' + e.response.data));
+    // uncomment when ready
+    // const json_urls = await get_urls(jobUrl);
     
     // iterate over the json urls
-    jsonData.all_links.forEach(link => {
-        const anchor = link.anchor;
-        const href = link.href;
+    // jsonData.all_links.forEach(link => {
+    //     const anchor = link.anchor;
+    //     const href = link.href;
 
-        if (anchor.includes("Intern")) {
-            validUrls.push(indeed + href);
-            console.log(`url pushed: ${indeed + href}`);
-        }
-    });
+    //     if (anchor.includes("Intern")) {
+    //         validUrls.push(indeed + href);
+    //         console.log(`url pushed: ${indeed + href}`);
+    //     }
+    // });
 
     // change of plans select random top 10
     randomIndicies = await getRandomIndicies(validUrls, 1); // for now we are only scraping 4 random indicies
