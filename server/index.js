@@ -43,32 +43,24 @@ fs.readFile(jsonPath, 'utf8', (err, data) => {
 app.use(cors()); // communication with frontend  
 app.use(express.json()); // parse JSON
 
-// setup the database
+// connect mongodb client
 async function runDatabase() {
     try {
-      // Connect the client to the server	(optional starting in v4.7)
-        const database = mongoClient.db("newspaceDB");
-        const summarizedData = database.collection("summarizedData");
-        // test writing to the DB
-        // const doc = {
-        //     title: "NewSpace Test",
-        //     creator: "Ohm Rajpal"
-        // }
+        await mongoClient.connect();
+        await mongoClient.db("newspaceDB").command({ ping: 1 });
+        console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    } catch (e) {
+        console.log(`error ${e}`);
+    }
+}
 
-        // const result = await summarizedData.insertOne(doc);
-        // console.log(`A document was inserted with the _id: ${result.insertedId}`);
-        
-        // test reading from the db
-        // const query = { title: "NewSpace Test" };
-        // const retVal = await summarizedData.findOne(query);
-        // console.log(`creator found at ${retVal.creator}`);
-        
-        // List all databases
-        // const databases = await mongoClient.db().admin().listDatabases();
-        // console.log("Databases:", databases.databases);
-    } finally {
-      // Ensures that the client will close when you finish/error
-      await mongoClient.close();
+// currently used for debugging but useful to close connection after singular get request of webscraper
+async function closeDatabase() {
+    try {
+        await mongoClient.close();
+        console.log("Closed MongoDB connection!");
+    } catch (e) {
+        console.log(`error ${e}`);
     }
 }
 
@@ -85,9 +77,12 @@ function getRandomIndicies(arr, count) {
     return Array.from(indicies);
 }
 
+// modify so that all the urls get saved to the database
 // access every url in main page
-async function get_urls(url) {
+async function getUrls(url) {
     try {
+        const database = mongoClient.db("newspaceDB");
+        const rawLinks = database.collection("rawLinks");
         const urlData = await client.get({
             url: url,
             params: {
@@ -111,7 +106,14 @@ async function get_urls(url) {
         var decoder = new TextDecoder();
         var text = decoder.decode(urlData.data); 
         console.log("Response content:", text);
-        return text;        
+        
+        const doc = {
+            urlJSON: text,
+        }
+
+        const result = await rawLinks.insertOne(doc);
+        console.log(`A document was inserted with the _id: ${result.insertedId}`);
+        return text; // for debugging purposes: returning the actual data just in case the database didnt save it for now        
     } catch (e) {
         console.log('A problem occurs in scraping the website!');
         if (e.response) {
@@ -121,6 +123,8 @@ async function get_urls(url) {
             // For other errors like network issues
             console.error('Error Message:', e.message);
         }
+    } finally {
+        await closeDatabase();
     }
 }
 
@@ -236,6 +240,8 @@ const indeed = "https://www.indeed.com";
 
 app.get('/webscrape_jobs', async(req, res) => {
     // uncomment when ready
+    const json_urls = await getUrls(jobUrl);
+    console.log(json_urls);
     // const json_urls = await get_urls(jobUrl);
     
     // iterate over the json urls
@@ -249,18 +255,20 @@ app.get('/webscrape_jobs', async(req, res) => {
     //     }
     // });
 
+
+
     // change of plans select random top 10
-    randomIndicies = await getRandomIndicies(validUrls, 1); // for now we are only scraping 4 random indicies
+    // randomIndicies = await getRandomIndicies(validUrls, 1); // for now we are only scraping 4 random indicies
     // debugging
-    randomIndicies.forEach(async index => {
-        console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
-        const scrapedLinkData = await scrapeLink(validUrls[index]);        
-        const analyzedData = await analyze_page(encodeURIComponent(scrapedLinkData));
-        // want to store these results in a db
-        scrapedDataArr.push(scrapedLinkData);
-        analyzedDataArr.push(analyzedData);
-        console.log('Successfully scraped data!');
-    });
+    // randomIndicies.forEach(async index => {
+    //     console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
+    //     const scrapedLinkData = await scrapeLink(validUrls[index]);        
+    //     const analyzedData = await analyze_page(encodeURIComponent(scrapedLinkData));
+    //     // want to store these results in a db
+    //     scrapedDataArr.push(scrapedLinkData);
+    //     analyzedDataArr.push(analyzedData);
+    //     console.log('Successfully scraped data!');
+    // });
 })
 
 app.listen(PORT, () => {
