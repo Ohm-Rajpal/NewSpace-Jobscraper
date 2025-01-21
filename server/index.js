@@ -81,8 +81,6 @@ function getRandomIndicies(arr, count) {
 // access every url in main page
 async function getUrls(url) {
     try {
-        const database = mongoClient.db("newspaceDB");
-        const rawLinks = database.collection("rawLinks");
         const urlData = await client.get({
             url: url,
             params: {
@@ -105,15 +103,10 @@ async function getUrls(url) {
         console.log("Status Code:", urlData.status) 
         var decoder = new TextDecoder();
         var text = decoder.decode(urlData.data); 
-        console.log("Response content:", text);
-        
-        const doc = {
-            urlJSON: text,
-        }
-
-        const result = await rawLinks.insertOne(doc);
-        console.log(`A document was inserted with the _id: ${result.insertedId}`);
-        return text; // for debugging purposes: returning the actual data just in case the database didnt save it for now        
+        // console.log("Response content:", text);
+        var jsonParsed = JSON.parse(text);
+        console.log("Response content json form:", jsonParsed);
+        return jsonParsed;
     } catch (e) {
         console.log('A problem occurs in scraping the website!');
         if (e.response) {
@@ -123,9 +116,7 @@ async function getUrls(url) {
             // For other errors like network issues
             console.error('Error Message:', e.message);
         }
-    } finally {
-        await closeDatabase();
-    }
+    } 
 }
 
 async function scrapeLink(target_url) {
@@ -161,7 +152,7 @@ async function scrapeLink(target_url) {
 }
 
 // function to analyze scraped data
-async function analyze_page(pageData) {
+async function analyzePage(pageData) {
     // call openai api to analyze the page
     // we will save this result too    
     try {
@@ -239,36 +230,50 @@ const jobUrl = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
 const indeed = "https://www.indeed.com";
 
 app.get('/webscrape_jobs', async(req, res) => {
-    // uncomment when ready
-    const json_urls = await getUrls(jobUrl);
-    console.log(json_urls);
-    // const json_urls = await get_urls(jobUrl);
+    try {
+        // database
+        const database = mongoClient.db("newspaceDB");
+        const jobData = database.collection("jobData");
+
+        // scrape urls
+        const jsonData = await getUrls(jobUrl);
+        // only save urls that contain keyword "Intern"
+        console.log('about to go over each link')
+        jsonData.all_links.forEach(link => {
+            const anchor = link.anchor;
+            const href = link.href;
     
-    // iterate over the json urls
-    // jsonData.all_links.forEach(link => {
-    //     const anchor = link.anchor;
-    //     const href = link.href;
+            if (anchor.includes("Intern")) {
+                validUrls.push(indeed + href);
+                console.log(`url pushed: ${indeed + href}`);
+            }
+        });
 
-    //     if (anchor.includes("Intern")) {
-    //         validUrls.push(indeed + href);
-    //         console.log(`url pushed: ${indeed + href}`);
-    //     }
-    // });
+        // select four random jobs from the top tne links
+        randomIndicies = await getRandomIndicies(validUrls, 4);
+        // iterate over each index
+        randomIndicies.forEach(async index => {
+            console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
+            const scrapedLinkData = await scrapeLink(validUrls[index]);        
+            const analyzedData = await analyzePage(encodeURIComponent(scrapedLinkData));
+            
+            scrapedDataArr.push(scrapedLinkData);
+            analyzedDataArr.push(analyzedData);
 
-
-
-    // change of plans select random top 10
-    // randomIndicies = await getRandomIndicies(validUrls, 1); // for now we are only scraping 4 random indicies
-    // debugging
-    // randomIndicies.forEach(async index => {
-    //     console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
-    //     const scrapedLinkData = await scrapeLink(validUrls[index]);        
-    //     const analyzedData = await analyze_page(encodeURIComponent(scrapedLinkData));
-    //     // want to store these results in a db
-    //     scrapedDataArr.push(scrapedLinkData);
-    //     analyzedDataArr.push(analyzedData);
-    //     console.log('Successfully scraped data!');
-    // });
+            const doc = {
+                indexNum: index,
+                urlUsed: validUrls[index],
+                analyzedData: analyzedData
+            }
+            // store results in db
+            const result = await jobData.insertOne(doc);
+            console.log(`Successfully scraped data! Final result ${result}`);
+        });
+    } catch (e) {
+        console.log(`error ${e}`);
+    } finally {
+        closeDatabase();
+    }
 })
 
 app.listen(PORT, () => {
