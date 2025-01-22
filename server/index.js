@@ -16,10 +16,10 @@ const mongoClient = new MongoClient(uri, { serverApi: { version: ServerApiVersio
 const PORT = 3000;
 
 // temporary data from JSON delete later
-const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
-const __dirname = path.dirname(__filename); // get the name of the directory
-const jsonPath = path.join(__dirname, 'data.json');
-let jsonData = null;
+// const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
+// const __dirname = path.dirname(__filename); // get the name of the directory
+// const jsonPath = path.join(__dirname, 'data.json');
+// let jsonData = null;
 
 // debugging: read the file
 fs.readFile(jsonPath, 'utf8', (err, data) => {
@@ -171,7 +171,7 @@ async function analyzePage(pageData) {
         10. **Application Deadline (if available)**: The deadline by which candidates must apply, if mentioned.
         11. **Company Benefits (if available)**: A list of any benefits or perks mentioned in the job description (e.g., healthcare, paid time off, bonuses, etc.).
         
-        For each job description, extract the above details and return them in a structured format like this:
+        For each job description, extract the above details and return them in a easy to read format below:
         
         {
             "Job Title": "Software Engineer",
@@ -207,17 +207,11 @@ async function analyzePage(pageData) {
 }
 
 // debugging get requests by scraper
-// app.get('/test_test', async (req, res) => {
+// app.get('/webscrape_jobs', async (req, res) => {
 //     console.log('begin scraping whole page test');
 //     const data = await scrapeLink("https://www.indeed.com/viewjob?jk=425bf3c5e49ca25d");
 //     console.log(`data is ${data}`);
 // })
-
-// modify this code to save the data in a database tool
-// for now i have copied and pasted the data in a json
-// iterate over the json and extract the links
-// call a different scraper get request to get the information on the page
-// afterwards call an LLM to analyze the results and format it in a nice way
 
 // go over every anchor link that has the word "intern" in it
 // create an array that holds the link to every one of the
@@ -248,31 +242,24 @@ app.get('/webscrape_jobs', async(req, res) => {
                 console.log(`url pushed: ${indeed + href}`);
             }
         });
-
         // select four random jobs from the top tne links
         randomIndicies = await getRandomIndicies(validUrls, 4);
         // iterate over each index
         randomIndicies.forEach(async index => {
             console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
             const scrapedLinkData = await scrapeLink(validUrls[index]);        
-            const analyzedData = await analyzePage(encodeURIComponent(scrapedLinkData));
-            
+            const analyzedData = await analyzePage(encodeURIComponent(scrapedLinkData)); // issue is here: the code moves onto the next line before completion of this
             scrapedDataArr.push(scrapedLinkData);
-            analyzedDataArr.push(analyzedData);
-
-            const doc = {
-                indexNum: index,
-                urlUsed: validUrls[index],
-                analyzedData: analyzedData
-            }
-            // store results in db
-            const result = await jobData.insertOne(doc);
-            console.log(`Successfully scraped data! Final result ${result}`);
+            analyzedDataArr.push({ randomIndex: index, randomUrl: validUrls[index], data: analyzedData });
         });
+
+        const options = { ordered: true };
+        const result = await jobData.insertMany(analyzedDataArr, options);
+        console.log(`${result.insertedCount} documents were inserted`);
     } catch (e) {
         console.log(`error ${e}`);
     } finally {
-        closeDatabase();
+        await mongoClient.close(); // potential fix?
     }
 })
 
