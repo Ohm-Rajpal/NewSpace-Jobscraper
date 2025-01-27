@@ -4,9 +4,6 @@ import cors from 'cors';
 import scrapingbee from "scrapingbee";
 import { MongoClient, ServerApiVersion } from 'mongodb'; 
 import 'dotenv/config';
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from 'url';
 
 const openai = new OpenAI();
 const client = new scrapingbee.ScrapingBeeClient(process.env.BEE_API); 
@@ -14,30 +11,6 @@ const app = express();
 const uri = `mongodb+srv://ohmrajpal:${process.env.DB_PASSWORD}@cluster0.5pxx9.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`; 
 const mongoClient = new MongoClient(uri, { serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true, }});
 const PORT = 3000;
-
-// temporary data from JSON delete later
-// const __filename = fileURLToPath(import.meta.url); // get the resolved path to the file
-// const __dirname = path.dirname(__filename); // get the name of the directory
-// const jsonPath = path.join(__dirname, 'data.json');
-// let jsonData = null;
-
-// debugging: read the file
-fs.readFile(jsonPath, 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading JSON file:', err);
-      return;
-    }
-  
-    // Parse the JSON data
-    try {
-      jsonData = JSON.parse(data);
-  
-      // Now you have the JSON data in memory
-    //   console.log('JSON Data:', jsonData);
-    } catch (parseError) {
-      console.error('Error parsing JSON:', parseError);
-    }
-  });
 
 // middleware
 app.use(cors()); // communication with frontend  
@@ -157,37 +130,19 @@ async function analyzePage(pageData) {
     // we will save this result too    
     try {
         const userInput = String(pageData);
-        const systemPrompt = `You are an intelligent job parser designed to extract relevant details from job postings. Your task is to identify and return key information about the job listing. For each job description provided, please extract the following details in the format specified below:
+        const systemPrompt = `You are an intelligent job parser designed to extract and summarize critical details from internship postings. Your task is to generate a clear and concise paragraph describing the most important aspects of the internship. For each internship description provided:
 
-        1. **Job Title**: The title of the job position.
-        2. **Company Name**: The name of the company hiring for this position.
-        3. **Location**: The location or region where the job is based (e.g., city, state, or remote).
-        4. **Job Description**: A brief summary of the job responsibilities, duties, and role expectations.
-        5. **Required Skills**: A list of the key skills or qualifications required for this position (e.g., technical skills, certifications, or specific experience).
-        6. **Preferred Skills**: A list of any additional skills or qualifications that are preferred but not mandatory.
-        7. **Experience Level**: The experience level required (e.g., entry-level, mid-level, senior, etc.).
-        8. **Salary Range (if available)**: If salary information is provided, please include it.
-        9. **Job Type**: The type of employment (e.g., full-time, part-time, contract, remote).
-        10. **Application Deadline (if available)**: The deadline by which candidates must apply, if mentioned.
-        11. **Company Benefits (if available)**: A list of any benefits or perks mentioned in the job description (e.g., healthcare, paid time off, bonuses, etc.).
+        - Highlight the required and preferred technical skills as a top priority. If specific skills are not mentioned, infer likely skills based on the internship title and description. For aerospace engineering internships, consider mentioning CAD software (e.g., CATIA, SolidWorks), finite element analysis tools (e.g., ANSYS, NASTRAN), programming languages (e.g., MATLAB, Python), and knowledge of aerodynamics or propulsion systems.
+        - Include the internship title, company name, location (or note if the internship is remote), and the year the internship is for (e.g., Summer 2025 Internship).
+        - Provide a brief overview of the internship responsibilities and learning opportunities.
+        - Mention any prerequisites like education level (e.g., junior or senior in aerospace engineering), GPA requirements, and any experience needed. If not stated, make reasonable assumptions.
+        - Include details about the duration, type of internship (e.g., paid, full-time, part-time), and any other notable benefits or perks if available.
         
-        For each job description, extract the above details and return them in a easy to read format below:
+        Focus on delivering an easy-to-read, single-paragraph summary that emphasizes technical requirements and other critical details. For example:
         
-        {
-            "Job Title": "Software Engineer",
-            "Company Name": "Tech Innovators Inc.",
-            "Location": "San Francisco, CA",
-            "Job Description": "Develop and maintain software applications, collaborate with cross-functional teams.",
-            "Required Skills": ["JavaScript", "Node.js", "React"],
-            "Preferred Skills": ["AWS", "Docker"],
-            "Experience Level": "Mid-level",
-            "Salary Range": "$80,000 - $100,000",
-            "Job Type": "Full-time",
-            "Application Deadline": "March 31, 2025",
-            "Company Benefits": ["Healthcare", "401(k)", "Paid Time Off"]
-        }
+        'AeroTech Dynamics is offering a Summer 2025 Aerospace Engineering Internship in Huntsville, AL, or remote. The role involves supporting the design and analysis of aerospace systems, requiring skills in CATIA for CAD, MATLAB for computational modeling, and a basic understanding of aerodynamics and propulsion systems. Ideal candidates are juniors or seniors in aerospace engineering with a GPA of 3.5 or higher. This full-time, paid internship provides hands-on experience with advanced aerospace tools, mentorship opportunities, and a potential pathway to full-time employment.'
         
-        Your response should focus on parsing and organizing the job description into structured data. If any specific information is missing or unclear, please mark it as "Not provided."`;
+        Your response should prioritize readability, conciseness, and accurately summarize the internship description, with a focus on skills and the year of the internship.`;
         
         // openAI docs
         const completion = await openai.chat.completions.create({
@@ -206,18 +161,11 @@ async function analyzePage(pageData) {
     }
 }
 
-// debugging get requests by scraper
-// app.get('/webscrape_jobs', async (req, res) => {
-//     console.log('begin scraping whole page test');
-//     const data = await scrapeLink("https://www.indeed.com/viewjob?jk=425bf3c5e49ca25d");
-//     console.log(`data is ${data}`);
-// })
-
 // go over every anchor link that has the word "intern" in it
 // create an array that holds the link to every one of the
 // https://www.indeed.com/
 const validUrls = [];
-let randomIndicies = [];
+// let randomIndicies = [];
 const scrapedDataArr = [];
 const analyzedDataArr = [];
 const jobUrl = 'https://www.indeed.com/jobs?q=aerospace+engineering+intern';
@@ -227,39 +175,56 @@ app.get('/webscrape_jobs', async(req, res) => {
     try {
         // database
         const database = mongoClient.db("newspaceDB");
+        const urlDB = database.collection("urlData");
+        const rawDB = database.collection("rawData");
         const jobData = database.collection("jobData");
 
-        // scrape urls
+        // 1. Scrape URLs
         const jsonData = await getUrls(jobUrl);
-        // only save urls that contain keyword "Intern"
-        console.log('about to go over each link')
+        console.log('about to go over each link'); // only save urls that contain keyword "Intern"
         jsonData.all_links.forEach(link => {
             const anchor = link.anchor;
             const href = link.href;
     
             if (anchor.includes("Intern")) {
-                validUrls.push(indeed + href);
+                validUrls.push({currentLink: indeed + href});
                 console.log(`url pushed: ${indeed + href}`);
             }
         });
-        // select four random jobs from the top tne links
-        randomIndicies = await getRandomIndicies(validUrls, 4);
-        // iterate over each index
-        randomIndicies.forEach(async index => {
-            console.log(`random index ${index} and corresponding link ${validUrls[index]}`);
-            const scrapedLinkData = await scrapeLink(validUrls[index]);        
-            const analyzedData = await analyzePage(encodeURIComponent(scrapedLinkData)); // issue is here: the code moves onto the next line before completion of this
-            scrapedDataArr.push(scrapedLinkData);
-            analyzedDataArr.push({ randomIndex: index, randomUrl: validUrls[index], data: analyzedData });
-        });
+        // save urls in the DB
+        const insertLinks = await urlDB.insertMany(validUrls);
+        console.log(`${insertLinks.insertedCount} documents were inserted`);
 
-        const options = { ordered: true };
-        const result = await jobData.insertMany(analyzedDataArr, options);
-        console.log(`${result.insertedCount} documents were inserted`);
+        // 2. Read URLs and scrape each of them
+        const urlDBUrls = await urlDB.find().toArray();
+        // send the top 4 for analysis
+        for (let i = 0; i < 4; i+= 1) {
+            const link = urlDBUrls[i].currentLink;
+            const scrapedLinkData = await scrapeLink(link);
+            scrapedDataArr.push({currentData: scrapedLinkData});
+        }
+        // save raw data in the DB
+        const rawDataInserted = await rawDB.insertMany(scrapedDataArr);
+        console.log(`${rawDataInserted.insertedCount} documents were inserted`);
+
+        // READ THE data in the DB and analyze it and send that as the final parsed output 
+        const rawData = await rawDB.find().toArray();
+        
+        for (let i = 0; i < 4; i+= 1) {
+            const rawDataEntry = rawData[i].currentData;
+            const analyzedDataEntry = await analyzePage(rawDataEntry);
+            analyzedDataArr.push({currentData: analyzedDataEntry});
+        }
+
+        // save analyzed data in DB
+        const analyzedResult = await jobData.insertMany(analyzedDataArr);
+        console.log(`${analyzedResult.insertedCount} documents were inserted`);
+
+        console.log('workflow completed!');
     } catch (e) {
         console.log(`error ${e}`);
     } finally {
-        await mongoClient.close(); // potential fix?
+        await mongoClient.close();
     }
 })
 
