@@ -228,6 +228,20 @@ app.get('/webscrape_jobs', async(req, res) => {
     }
 })
 
+// create a function that takes the scraped data from the backend and send it to the frontend
+app.get('/send_data', async (req, res) => {
+    const database = mongoClient.db("newspaceDB"); // connect to the DB
+    const jobData = database.collection("jobData"); // get the specific collection
+
+    const getData = await jobData.find().toArray();
+
+    getData.forEach((currentData, i) => {
+        console.log(`item ${i + 1} has data ${currentData.currentData}`);
+    })
+
+    res.send(getData);
+})
+
 app.listen(PORT, () => {
     console.log(`Listening on port ${PORT}`);
 }) 

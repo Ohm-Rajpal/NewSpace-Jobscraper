@@ -32,25 +32,22 @@ function App() {
     }
   };
 
-  // testing if playwright get request works
-  // const testPlaywright = async () => {
-  //   try {
-  //     console.log('about to test playwright');
-  //     const scrapedResponse = await axios.get('http://localhost:3000/scrape_test');
-  //     console.log(`Backend response ${scrapedResponse}`);
-  //   } catch (e) {
-  //     console.log('Failed to make get request');
-  //     console.log(`error was ${e}`);
-  //   }
-  // }
-
-  const testScrapingBee = async () => {
+  const scrapeData = async () => {
     try {
       console.log('testing scraping bee bc playwright is hard');
       const exampleCall = await axios.get('http://localhost:3000/webscrape_jobs');
       console.log(`Backend response ${exampleCall}`);
     } catch (e) {
       console.log('failed to make get request');
+    }
+  }
+
+  const getScrapedData = async () => {
+    try {
+      const getData = await axios.get('http://localhost:3000/send_data');
+      alert(`Successfully recieved data from the backend with data ${getData}`);
+    } catch (e) {
+      console.log('Failed to return data from the DB!');
     }
   }
 
@@ -127,8 +124,8 @@ function App() {
               color: '#fff', 
             },
           }}
-          // onClick={() => testPlaywright()}
-          onClick={() => testScrapingBee()}
+          // onClick={() => scrapeData()}
+          onClick={() => getScrapedData()}
         >
           Test Playwright
         </Button>
